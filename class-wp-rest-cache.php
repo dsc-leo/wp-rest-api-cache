@@ -17,7 +17,7 @@ if ( ! class_exists( 'WP_REST_Cache' ) ) {
 
 	class WP_REST_Cache {
 
-		const VERSION = '1.2.0';
+		const VERSION = '1.2.1';
 
 		private static $refresh = null;
 
@@ -59,8 +59,12 @@ if ( ! class_exists( 'WP_REST_Cache' ) ) {
 					$result  = $server->dispatch( $request );
 					$timeout = WP_REST_Cache_Admin::get_options( 'timeout' );
 					$timeout = apply_filters( 'rest_cache_timeout', $timeout['length'] * $timeout['period'], $timeout['length'], $timeout['period'] );
+
+					do_action('rest_cache_pre_save', $key, $result, $timeout);
 					
 					set_transient( $key, $result, $timeout );
+
+					do_action('rest_cache_post_save', $key, $result, $timeout);
 				}
 			}
 
@@ -70,11 +74,23 @@ if ( ! class_exists( 'WP_REST_Cache' ) ) {
 		public static function empty_cache() {
 			global $wpdb;
 
-			return $wpdb->query( $wpdb->prepare( 
+			$skip = apply_filters( 'rest_cache_empty_skip', false );
+
+			if ($skip) {
+				return false;
+			}
+
+			do_action( 'rest_cache_pre_empty' );
+
+			$result = $wpdb->query( $wpdb->prepare( 
 				"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", 
 				'_transient_rest_cache_%', 
 				'_transient_timeout_rest_cache_%' 
 			) );
+
+			do_action( 'rest_cache_post_empty' );
+
+			return $result;
 		}
 
 	}
